@@ -395,7 +395,7 @@ type IconModule = {
 
 local FetchIcons, Icons = pcall(function()
     return (loadstring(
-        game:HttpGet("https://raw.githubusercontent.com/deividcomsono/lucide-roblox-direct/refs/heads/main/source.lua")
+        game:HttpGet("https://gitlab.com/upio/lucide-roblox-direct/-/raw/main/source.lua")
     ) :: () -> IconModule)()
 end)
 
@@ -405,7 +405,7 @@ function IsValidCustomIcon(Icon: string)
 end
 
 function Library:GetIcon(IconName: string)
-    if not FetchIcons then
+    if not FetchIcons or not Icons then
         return
     end
 
