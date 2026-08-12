@@ -472,6 +472,8 @@ function Library:SetDPIScale(value: number)
 end
 
 function Library:SafeCallback(Func, ...)
+    setthreadidentity(8)
+
     -- https://github.com/deividcomsono/Obsidian/blob/main/Library.lua#L1100
     if not (Func and typeof(Func) == "function") then
         return
@@ -499,6 +501,8 @@ function Library:AttemptSave()
 end
 
 function Library:Create(Class, Properties)
+    setthreadidentity(8)
+
     local _Instance = Class
 
     if typeof(Class) == "string" then
@@ -1083,6 +1087,8 @@ function Library:GiveSignal(Connection: RBXScriptConnection | RBXScriptSignal) -
 end
 
 function Library:Unload()
+    setthreadidentity(8)
+
     if Library.Unloaded then return end
     Library.Unloaded = true
 
@@ -2858,6 +2864,8 @@ do
         end
 
         function Dropdown:BuildDropdownList()
+            setthreadidentity(8)
+
             local Values = Dropdown.Values
             local DisabledValues = Dropdown.DisabledValues
             local Buttons = {}
@@ -3003,7 +3011,38 @@ do
                 Dropdown.Values = NewValues
             end
 
-            Dropdown:BuildDropdownList()
+            if ListOuter.Visible then
+                Dropdown:BuildDropdownList()
+            else
+                Dropdown:Display()
+            end
+        end
+
+        function Dropdown:UpdateKey(Key, NewValue)
+            local Index = table.find(Dropdown.Values, Key)
+
+            if not Index or NewValue == nil then
+                return false
+            end
+
+            Dropdown.Values[Index] = NewValue
+
+            if Dropdown.Multi then
+                if Dropdown.Value[Key] then
+                    Dropdown.Value[Key] = nil
+                    Dropdown.Value[NewValue] = true
+                end
+            elseif Dropdown.Value == Key then
+                Dropdown.Value = NewValue
+            end
+
+            if ListOuter.Visible then
+                Dropdown:BuildDropdownList()
+            else
+                Dropdown:Display()
+            end
+
+            return true
         end
 
         function Dropdown:AddValues(NewValues)
@@ -3070,6 +3109,8 @@ do
             if Dropdown.Disabled then
                 return
             end
+
+            Dropdown:BuildDropdownList()
 
             if Library.IsMobile then
                 Library.CanDrag = false
@@ -3139,7 +3180,11 @@ do
                 end
             end
 
-            Dropdown:BuildDropdownList()
+            if ListOuter.Visible then
+                Dropdown:BuildDropdownList()
+            else
+                Dropdown:Display()
+            end
 
             if not Dropdown.Disabled then
                 Library:SafeCallback(Dropdown.Callback, Dropdown.Value)
@@ -4361,6 +4406,8 @@ do
         end
         
         function Slider:Display()
+            setthreadidentity(8)
+
             local CustomDisplayText = nil
             if Info.FormatDisplayValue then
                 CustomDisplayText = Info.FormatDisplayValue(Slider, Slider.Value)
@@ -4863,6 +4910,8 @@ do
         end
 
         function Dropdown:BuildDropdownList()
+            setthreadidentity(8)
+
             local Values = Dropdown.Values
             local DisabledValues = Dropdown.DisabledValues
             local Buttons = {}
@@ -5000,7 +5049,38 @@ do
                 Dropdown.Values = NewValues
             end
 
-            Dropdown:BuildDropdownList()
+            if ListOuter.Visible then
+                Dropdown:BuildDropdownList()
+            else
+                Dropdown:Display()
+            end
+        end
+
+        function Dropdown:UpdateKey(Key, NewValue)
+            local Index = table.find(Dropdown.Values, Key)
+
+            if not Index or NewValue == nil then
+                return false
+            end
+
+            Dropdown.Values[Index] = NewValue
+
+            if Dropdown.Multi then
+                if Dropdown.Value[Key] then
+                    Dropdown.Value[Key] = nil
+                    Dropdown.Value[NewValue] = true
+                end
+            elseif Dropdown.Value == Key then
+                Dropdown.Value = NewValue
+            end
+
+            if ListOuter.Visible then
+                Dropdown:BuildDropdownList()
+            else
+                Dropdown:Display()
+            end
+
+            return true
         end
 
         function Dropdown:AddValues(NewValues)
@@ -5073,6 +5153,8 @@ do
                 return
             end
 
+            Dropdown:BuildDropdownList()
+
             if Library.IsMobile then
                 Library.CanDrag = false
             end
@@ -5137,7 +5219,11 @@ do
                 end
             end
 
-            Dropdown:BuildDropdownList()
+            if ListOuter.Visible then
+                Dropdown:BuildDropdownList()
+            else
+                Dropdown:Display()
+            end
 
             if not Dropdown.Disabled then
                 Library:SafeCallback(Dropdown.Callback, Dropdown.Value)
@@ -7444,6 +7530,8 @@ do
         end
 
         function Tab:Resize()
+            setthreadidentity(8)
+
             if TopBar.Visible == true then
                 local MaximumSize = math.floor(TabFrame.AbsoluteSize.Y / 3.25)
                 local Size = 27 + select(2, Library:GetTextBounds(TopBarTextLabel.Text, Library.Font, 14, Vector2.new(TopBarTextLabel.AbsoluteSize.X, math.huge)))
@@ -7635,6 +7723,8 @@ end
             })
 
             function Groupbox:Resize()
+                setthreadidentity(8)
+
                 local Size = 0
 
                 for _, Element in next, Groupbox.Container:GetChildren() do
@@ -7807,6 +7897,8 @@ end
                 end
 
                 function Tab:Resize()
+                    setthreadidentity(8)
+
                     local TabCount = 0
 
                     for _, Tab in next, Tabbox.Tabs do
