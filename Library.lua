@@ -8,6 +8,7 @@ local Teams: Teams = cloneref(game:GetService("Teams"))
 local Players: Players = cloneref(game:GetService("Players"))
 local RunService: RunService = cloneref(game:GetService("RunService"))
 local TweenService: TweenService = cloneref(game:GetService("TweenService"))
+local DestroyInstance = game.Destroy
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local Mouse = cloneref(LocalPlayer:GetMouse())
@@ -23,7 +24,6 @@ local setclipboard = setclipboard or nil
 local getgenv = getgenv or function()
 	return shared
 end
-local ProtectGui = protectgui or (syn and syn.protect_gui) or function() end
 local GetHUI = gethui or function()
 	return CoreGui
 end
@@ -61,7 +61,6 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 		return
 	end
 
-	pcall(ProtectGui, UI)
 	SafeParentUI(UI, GetHUI)
 end
 
@@ -886,7 +885,7 @@ function Library:AddToolTip(InfoStr, DisabledInfoStr, HoverInstance)
             end
         end
 
-        Tooltip:Destroy()
+        pcall(DestroyInstance, Tooltip)
     end
 
     table.insert(Tooltips, TooltipTable)
@@ -1084,6 +1083,9 @@ function Library:GiveSignal(Connection: RBXScriptConnection | RBXScriptSignal) -
 end
 
 function Library:Unload()
+    if Library.Unloaded then return end
+    Library.Unloaded = true
+
     for Idx = #Library.Signals, 1, -1 do
         local Connection = table.remove(Library.Signals, Idx)
         if Connection and Connection.Connected then
@@ -1091,16 +1093,15 @@ function Library:Unload()
         end
     end
 
-    for _, UnloadCallback in Library.UnloadSignals do
+    local UnloadSignals = table.clone(Library.UnloadSignals)
+    table.clear(Library.UnloadSignals)
+    for _, UnloadCallback in UnloadSignals do
         Library:SafeCallback(UnloadCallback)
     end
 
-    for _, Tooltip in Tooltips do
-        Library:SafeCallback(Tooltip.Destroy, Tooltip)
-    end
-
-    Library.Unloaded = true
-    ScreenGui:Destroy()
+    table.clear(Tooltips)
+    local Success, DestroyError = pcall(DestroyInstance, ScreenGui)
+    if not Success then warn(`Linoria ScreenGui cleanup failed: {DestroyError}`) end
 
     getgenv().Linoria = nil
 end
