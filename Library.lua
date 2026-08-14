@@ -34,6 +34,101 @@ local assert = function(condition, errorMessage)
 	end
 end
 
+local SliderNumberSuffixes = {
+    k = 1e3,
+    m = 1e6,
+    b = 1e9,
+    t = 1e12,
+    q = 1e15,
+    qa = 1e15,
+    qi = 1e18,
+    sx = 1e21,
+    sp = 1e24,
+    oc = 1e27,
+    no = 1e30,
+    dc = 1e33,
+    ud = 1e36,
+    dd = 1e39,
+    td = 1e42,
+    qd = 1e45,
+    qnd = 1e48,
+    sxd = 1e51,
+    spd = 1e54,
+    ocd = 1e57,
+    nod = 1e60,
+    vg = 1e63,
+}
+
+local function ParseSliderNumber(Value)
+    if typeof(Value) == "number" then
+        return Value
+    end
+    if typeof(Value) ~= "string" then
+        return nil
+    end
+
+    local Text = string.lower(Value)
+    Text = string.gsub(Text, "%s+", "")
+    Text = string.gsub(Text, "_", "")
+
+    if Text == "inf" or Text == "+inf" or Text == "infinity" or Text == "+infinity" then
+        return math.huge
+    elseif Text == "-inf" or Text == "-infinity" then
+        return -math.huge
+    end
+
+    local Suffix = string.match(Text, "([%a]+)$")
+    local Multiplier = 1
+
+    if Suffix then
+        Multiplier = SliderNumberSuffixes[Suffix]
+        if not Multiplier then
+            return nil
+        end
+        Text = string.sub(Text, 1, #Text - #Suffix)
+    end
+
+    local DotCount = select(2, string.gsub(Text, "%.", ""))
+    local CommaCount = select(2, string.gsub(Text, ",", ""))
+
+    if DotCount > 0 and CommaCount > 0 then
+        local LastDot = string.find(string.reverse(Text), ".", 1, true)
+        local LastComma = string.find(string.reverse(Text), ",", 1, true)
+        local DecimalSeparator = LastDot < LastComma and "." or ","
+        local ThousandsSeparator = DecimalSeparator == "." and "," or "."
+
+        Text = string.gsub(Text, "%" .. ThousandsSeparator, "")
+        if DecimalSeparator == "," then
+            Text = string.gsub(Text, ",", ".")
+        end
+    elseif DotCount > 0 or CommaCount > 0 then
+        local Separator = DotCount > 0 and "." or ","
+        local Count = DotCount + CommaCount
+        local EscapedSeparator = "%" .. Separator
+
+        if Count > 1 then
+            Text = string.gsub(Text, EscapedSeparator, "")
+        else
+            local Whole, Fraction = string.match(Text, "^([%+%-]?%d+)" .. EscapedSeparator .. "(%d+)$")
+
+            local AbsoluteWhole = Whole and string.gsub(Whole, "^[%+%-]", "") or nil
+
+            if Whole and Fraction and #Fraction == 3 and AbsoluteWhole ~= "0" then
+                Text = Whole .. Fraction
+            elseif Separator == "," then
+                Text = string.gsub(Text, ",", ".")
+            end
+        end
+    end
+
+    local Number = tonumber(Text)
+    if not Number then
+        return nil
+    end
+
+    return Number * Multiplier
+end
+
 local function SafeParentUI(Instance: Instance, Parent: Instance | () -> Instance)
 	local success, _error = pcall(function()
 		if not Parent then
@@ -2842,6 +2937,8 @@ do
         end
 
         function Dropdown:Display()
+            setthreadidentity(8)
+
             local Str = Dropdown:GenerateDisplayText(Dropdown.Value)
             ItemList.Text = Str
 
@@ -3007,6 +3104,8 @@ do
         end
 
         function Dropdown:SetValues(NewValues)
+            setthreadidentity(8)
+
             if NewValues then
                 Dropdown.Values = NewValues
             end
@@ -3019,6 +3118,8 @@ do
         end
 
         function Dropdown:UpdateKey(Key, NewValue)
+            setthreadidentity(8)
+
             local Index = table.find(Dropdown.Values, Key)
 
             if not Index or NewValue == nil then
@@ -3106,6 +3207,8 @@ do
         end
 
         function Dropdown:OpenDropdown()
+            setthreadidentity(8)
+
             if Dropdown.Disabled then
                 return
             end
@@ -3160,6 +3263,8 @@ do
         end
 
         function Dropdown:SetValue(Value)
+            setthreadidentity(8)
+
             if Dropdown.Multi then
                 local Table = {}
 
@@ -4283,6 +4388,7 @@ do
 
             Prefix = typeof(Info.Prefix) == "string" and Info.Prefix or "";
             Suffix = typeof(Info.Suffix) == "string" and Info.Suffix or "";
+            ManualInput = Info.ManualInput == true or Info.AllowManualInput == true;
 
             Callback = Info.Callback or function(Value) end;
         }
@@ -4373,7 +4479,34 @@ do
             ZIndex = 9;
             Parent = SliderInner;
             RichText = true;
+            Active = Slider.ManualInput;
         })
+
+        local ManualInputBox
+
+        if Slider.ManualInput then
+            ManualInputBox = Library:Create("TextBox", {
+                Active = true;
+                BackgroundTransparency = 1;
+                ClearTextOnFocus = false;
+                Font = Library.Font;
+                Position = UDim2.fromScale(0, 0);
+                Size = UDim2.fromScale(1, 1);
+                Text = "";
+                TextColor3 = Library.FontColor;
+                TextSize = 14;
+                TextStrokeTransparency = 0;
+                TextXAlignment = Enum.TextXAlignment.Center;
+                Visible = false;
+                ZIndex = 10;
+                Parent = SliderInner;
+            })
+
+            Library:ApplyTextStroke(ManualInputBox)
+            Library:AddToRegistry(ManualInputBox, {
+                TextColor3 = "FontColor";
+            })
+        end
 
         Library:OnHighlight(SliderOuter, SliderOuter,
             { BorderColor3 = "AccentColor" },
@@ -4495,6 +4628,49 @@ do
                 Library:SafeCallback(Slider.Callback, Slider.Value)
                 Library:SafeCallback(Slider.Changed, Slider.Value)
             end
+        end
+
+        if ManualInputBox then
+            local EditingManualValue = false
+
+            local function FinishManualInput()
+                if not EditingManualValue then
+                    return
+                end
+
+                EditingManualValue = false
+
+                local ParsedValue = ParseSliderNumber(ManualInputBox.Text)
+
+                ManualInputBox.Visible = false
+                DisplayLabel.Visible = true
+
+                if ParsedValue ~= nil then
+                    Slider:SetValue(math.clamp(ParsedValue, Slider.Min, Slider.Max))
+                    Library:AttemptSave()
+                else
+                    Slider:Display()
+                end
+            end
+
+            DisplayLabel.InputBegan:Connect(function(Input)
+                if Slider.Disabled or EditingManualValue then
+                    return
+                end
+                if Input.UserInputType ~= Enum.UserInputType.MouseButton2 then
+                    return
+                end
+
+                EditingManualValue = true
+                DisplayLabel.Visible = false
+                ManualInputBox.Text = tostring(Slider.Value)
+                ManualInputBox.Visible = true
+                ManualInputBox:CaptureFocus()
+                ManualInputBox.CursorPosition = #ManualInputBox.Text + 1
+                ManualInputBox.SelectionStart = 1
+            end)
+
+            ManualInputBox.FocusLost:Connect(FinishManualInput)
         end
 
         function Slider:SetVisible(Visibility)
@@ -4873,6 +5049,8 @@ do
         end
 
         function Dropdown:Display()
+            setthreadidentity(8)
+
             local Values = Dropdown.Values
             local Str = ""
 
@@ -5045,6 +5223,8 @@ do
         end
 
         function Dropdown:SetValues(NewValues)
+            setthreadidentity(8)
+
             if NewValues then
                 Dropdown.Values = NewValues
             end
@@ -5057,6 +5237,8 @@ do
         end
 
         function Dropdown:UpdateKey(Key, NewValue)
+            setthreadidentity(8)
+
             local Index = table.find(Dropdown.Values, Key)
 
             if not Index or NewValue == nil then
@@ -5149,6 +5331,8 @@ do
         end
 
         function Dropdown:OpenDropdown()
+            setthreadidentity(8)
+
             if Dropdown.Disabled then
                 return
             end
@@ -5199,6 +5383,8 @@ do
         end
 
         function Dropdown:SetValue(Value)
+            setthreadidentity(8)
+
             if Dropdown.Multi then
                 local Table = {}
 
